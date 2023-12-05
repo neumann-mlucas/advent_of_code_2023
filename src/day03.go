@@ -37,19 +37,18 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Test input P1 fail: %d, expected: %d", testResultP1, 4361)
 	}
 
-	// testResultP2 := CalcPowerSet(testInputP1)
-	// if testResultP2 != 2286 {
-	// 	fmt.Fprintf(os.Stderr, "Test input P2 fail: %d, expected: %d", testResultP2, 2286)
-	// }
+	testResultP2 := GetSumGearRatios(testInputP1)
+	if testResultP2 != 467835 {
+		fmt.Fprintf(os.Stderr, "Test input P2 fail: %d, expected: %d", testResultP2, 467835)
+	}
 
-	inputP1 := strings.TrimSpace(string(content))
-	resultP1 := SumParts(inputP1)
+	input := strings.TrimSpace(string(content))
 
+	resultP1 := SumParts(input)
 	fmt.Println(resultP1)
 
-	// inputP2 := strings.TrimSpace(string(content))
-	// resultP2 := CalcPowerSet(inputP2)
-	// fmt.Println(resultP2)
+	resultP2 := GetSumGearRatios(input)
+	fmt.Println(resultP2)
 }
 
 func SumParts(engine string) int {
@@ -154,4 +153,91 @@ func (n *Number) isAllowed(grid [][]bool) bool {
 		}
 	}
 	return false
+}
+
+func (n *Number) isNeighour(i, j int) bool {
+	if n.line < i-1 || n.line > i+1 {
+		return false
+	}
+
+	for _, idx := range n.idxs {
+		if idx >= j-1 && idx <= j+1 {
+			return true
+		}
+	}
+	return false
+}
+
+type Coord struct {
+	i int
+	j int
+}
+
+func FindGears(grid []string, out chan Coord) {
+	for i, line := range grid {
+		for j, char := range line {
+			if char == '*' {
+				out <- Coord{i, j}
+			}
+		}
+	}
+	close(out)
+}
+
+func FindAdjacentNumber(grid []string, inp chan Coord, out chan []Number) {
+	for coord := range inp {
+		var numbers []Number
+		// find numbers in line above Coord line and in lines above and  bellow
+		for inc := -1; inc <= 1; inc++ {
+			// check grid bounds
+			if coord.i+inc >= 0 && coord.i+inc < len(grid) {
+				// find numbers in line
+				n := FindNumbers(coord.i+inc, grid[coord.i+inc])
+				numbers = append(numbers, n...)
+			}
+		}
+
+		var pair []Number
+		for _, n := range numbers {
+			// check if number is neighour of coord
+			if n.isNeighour(coord.i, coord.j) {
+				pair = append(pair, n)
+			}
+
+		}
+		// send to next function
+		out <- pair
+	}
+	close(out)
+}
+
+func SumGearRatios(inp chan []Number, out chan int) {
+	var total int
+	for pair := range inp {
+		if len(pair) == 2 {
+			total += pair[0].toInt() * pair[1].toInt()
+		}
+	}
+	out <- total
+	close(out)
+}
+
+func GetSumGearRatios(engine string) int {
+
+	engine = strings.TrimSpace(engine)
+	grid := strings.Split(engine, "\n")
+
+	coordChan := make(chan Coord)
+	numChan := make(chan []Number)
+	intChan := make(chan int)
+
+	go FindGears(grid, coordChan)
+
+	go FindAdjacentNumber(grid, coordChan, numChan)
+
+	go SumGearRatios(numChan, intChan)
+
+	total := <-intChan
+	return total
+
 }
