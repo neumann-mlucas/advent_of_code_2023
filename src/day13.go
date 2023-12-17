@@ -29,7 +29,7 @@ func main() {
 	if len(os.Args) >= 2 {
 		fileName = os.Args[1]
 	} else {
-		fileName = "dat/day12.txt"
+		fileName = "dat/day13.txt"
 	}
 
 	content, err := os.ReadFile(fileName)
