@@ -92,7 +92,7 @@ func solveP2(input string) int {
 	}
 
 	match := findPeriodicPattern(series)
-	return match[(1_000_000_000-101)%(len(match)+1)-1]
+	return match[(1_000_000_000-101)%(len(match))-1]
 }
 
 func calcWeight(grid [][]rune) int {
