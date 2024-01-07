@@ -53,8 +53,8 @@ func main() {
 	resultP1 := solveP1(string(content))
 	fmt.Println(resultP1)
 
-	// resultP2 := solveP2(string(content))
-	// fmt.Println(resultP2)
+	resultP2 := solveP2(string(content))
+	fmt.Println(resultP2)
 }
 
 func solveP1(input string) int {
@@ -96,16 +96,13 @@ func solveP2(input string) int {
 		workflows[wf.Name] = wf
 	}
 
-	var paths [][]*Rule
+	var paths []string
 	ww := WorkFlowWalker{workflows, paths}
-	ww.Run("in", []*Rule{})
-	fmt.Println()
+	ww.Run("in", "")
 
 	var total int
 	for _, p := range ww.paths {
 		total += runPath(p)
-		fmt.Println("\n", pathToStr(p))
-		fmt.Println(total, "\n")
 	}
 	return total
 }
@@ -126,7 +123,7 @@ type WorkFlow struct {
 func parseRule(rule string) *Rule {
 	// default case, rule is just a label
 	if !strings.Contains(rule, ":") {
-		return &Rule{func(s map[string]int) bool { return true }, rule, "END:" + rule}
+		return &Rule{func(s map[string]int) bool { return true }, rule, "END"}
 	}
 
 	parts := strings.SplitN(rule, ":", 2)
@@ -205,36 +202,41 @@ func SumRates(m map[string]int) int {
 
 type WorkFlowWalker struct {
 	workflows map[string]*WorkFlow
-	paths     [][]*Rule
+	paths     []string
 }
 
-func (ww *WorkFlowWalker) Run(curr string, path []*Rule) {
+func (ww *WorkFlowWalker) Run(curr string, path string) {
 	wf := ww.workflows[curr]
 	for _, r := range wf.Rules {
-
+		// cond stratified path
 		if r.Label == "A" {
-			// fmt.Println(pathToStr(path) + "->A")
-			ww.paths = append(ww.paths, append(path, r))
+			// reach final dst
+			ww.paths = append(ww.paths, path+"|"+r.Raw)
 		} else if r.Label == "R" {
-			// fmt.Println(pathToStr(path) + "->R")
+			// reach final dst, but reject path
 		} else {
-			ww.Run(r.Label, append(path, r))
+			// go to next workflow
+			ww.Run(r.Label, path+"|"+r.Raw)
 		}
-
-		r := rev(r)
-		path = append(path, r)
+		// cond not stratified path
+		path = path + "|" + rev(r.Raw)
 	}
 
 }
 
-func rev(r *Rule) *Rule {
-	raw := r.Raw
-	if strings.Contains(raw, ">") {
-		raw = strings.Replace(raw, ">", "<", -1)
-	} else if strings.Contains(raw, "<") {
-		raw = strings.Replace(raw, "<", ">", -1)
+func rev(rule string) string {
+	if strings.Contains(rule, ">") {
+		condParts := strings.SplitN(rule, ">", 2)
+		key, valueStr := condParts[0], condParts[1]
+		value, _ := strconv.Atoi(valueStr)
+		rule = key + "<" + strconv.Itoa(value+1)
+	} else if strings.Contains(rule, "<") {
+		condParts := strings.SplitN(rule, "<", 2)
+		key, valueStr := condParts[0], condParts[1]
+		value, _ := strconv.Atoi(valueStr)
+		rule = key + ">" + strconv.Itoa(value-1)
 	}
-	return &Rule{r.Cond, r.Label, raw}
+	return rule
 }
 
 func pathToStr(rules []*Rule) string {
@@ -254,22 +256,22 @@ func (i *Interval) String() string {
 }
 
 func (i *Interval) less(n int) {
-	i.ub = min(n, i.ub)
+	i.ub = min(n-1, i.ub)
 }
 
 func (i *Interval) grether(n int) {
-	i.lb = max(n, i.lb)
+	i.lb = max(n+1, i.lb)
 }
 
 func (i *Interval) len() int {
-	lenInt := i.ub - i.lb - 1
+	lenInt := i.ub - i.lb + 1
 	if lenInt > 0 {
 		return lenInt
 	}
 	return 0
 }
 
-func runPath(path []*Rule) int {
+func runPath(path string) int {
 	obj := map[string]*Interval{
 		"x": &Interval{1, 4000},
 		"m": &Interval{1, 4000},
@@ -277,18 +279,18 @@ func runPath(path []*Rule) int {
 		"s": &Interval{1, 4000},
 	}
 
-	for _, rule := range path {
+	for _, rule := range strings.Split(path, "|") {
 
 		var opstr string
-		if strings.Contains(rule.Raw, "END") {
+		if rule == "" || rule == "END" {
 			continue
-		} else if strings.Contains(rule.Raw, ">") {
+		} else if strings.Contains(rule, ">") {
 			opstr = ">"
-		} else if strings.Contains(rule.Raw, "<") {
+		} else if strings.Contains(rule, "<") {
 			opstr = "<"
 		}
 
-		condParts := strings.SplitN(rule.Raw, opstr, 2)
+		condParts := strings.SplitN(rule, opstr, 2)
 		key, valueStr := condParts[0], condParts[1]
 		value, _ := strconv.Atoi(valueStr)
 
@@ -302,9 +304,8 @@ func runPath(path []*Rule) int {
 	}
 
 	total := 1
-	for _, v := range obj {
-		total *= v.len()
+	for _, p := range obj {
+		total *= p.len()
 	}
-	fmt.Println(obj)
 	return total
 }
