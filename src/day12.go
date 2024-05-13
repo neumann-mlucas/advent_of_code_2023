@@ -17,17 +17,17 @@ const testInputP1 = `
 `
 
 func main() {
-	// var fileName string
-	// if len(os.Args) >= 2 {
-	// 	fileName = os.Args[1]
-	// } else {
-	// 	fileName = "dat/day12.txt"
-	// }
-	//
-	// content, err := os.ReadFile(fileName)
-	// if err != nil {
-	// 	fmt.Fprintf(os.Stderr, "error: %s", err)
-	// }
+	var fileName string
+	if len(os.Args) >= 2 {
+		fileName = os.Args[1]
+	} else {
+		fileName = "dat/day12.txt"
+	}
+
+	content, err := os.ReadFile(fileName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %s", err)
+	}
 
 	testResultP1 := solveP1(testInputP1)
 	if testResultP1 != 21 {
@@ -39,9 +39,9 @@ func main() {
 	// 	fmt.Fprintf(os.Stderr, "Test input P2 fail: %d, expected: %d\n", testResultP2, 64)
 	// }
 
-	// resultP1 := solveP1(string(content))
-	// fmt.Println(resultP1)
-	//
+	resultP1 := solveP1(string(content))
+	fmt.Println(resultP1)
+
 	// resultP2 := solveP1(string(content), 26501365)
 	// fmt.Println(resultP2)
 }
@@ -128,13 +128,20 @@ func (sp Springs) getGroups(state Status) []SpringsPos {
 }
 
 func (sp Springs) satisfies() bool {
-    if sp.numSatisfied() == len(sp.constraints) {
-        return true
+    opSprings := sp.getGroups(Operational)
+    if len(opSprings) != len(sp.constraints) {
+        return false
     }
-    return false
+    if sp.numSatisfied() != len(sp.constraints) {
+        return false
+    }
+    return true
 }
 
 func (sp Springs) numSatisfied() int {
+    // previous heuristic: only look at states where 
+    // the score equal or greeter previous score
+
     opSprings := sp.getGroups(Operational)
     total, lc := 0, min(len(opSprings), len(sp.constraints))
     for idx := 0; idx < lc; idx++ {
@@ -161,17 +168,16 @@ func (c *Counter) resolve(sp Springs, start int) {
         if sp.states[idx] != Unknown { 
             continue // only Unknowns can change
         }
-        // heuristic, only look at states where the score equal or greeter score
-        oldScore := sp.numSatisfied()
-        sp.states[idx] = Operational
-        newScore := sp.numSatisfied()
-        if newScore >= oldScore {
-            newState := make([]Status, len(sp.states))
-            copy(newState, sp.states)
-            c.resolve(Springs{newState, sp.constraints}, idx) // branch out
-        } 
+        sp.states[idx] = Operational // brain dead approach 
+        c.resolve(Springs{makeCopy(sp.states), sp.constraints}, idx) // branch out
         sp.states[idx] = Unknown // restore previous state
     }
+}
+
+func makeCopy(original []Status) []Status {
+    dst := make([]Status, len(original))
+    copy(dst, original)
+    return dst
 }
 
 
